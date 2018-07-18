@@ -1,3 +1,5 @@
+var twoPI = Math.PI*2;
+
 class Vector {
     constructor(x,y) {
         this.x=x;
@@ -43,4 +45,18 @@ class Vector {
     dot (v) {
         return this.x*v.x + this.y*v.y;
     }
+}
+
+function clamp(value, min, max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+}
+
+function toRadians(degrees) {
+    return degrees/360.0*twoPI;
+}
+
+function toDegrees(radians) {
+    return radians/twoPI*360.0;
 }
