@@ -11,7 +11,7 @@ var world = {
 var stepSize = 0.1;
 var numTrees = 3;
 var treeStiffness = 1;
-var leafsPerTwig = 3;
+var leafsPerTwig = 4;
 var windSpeed = 5;
 var leafFallSpeed = 3;
 
@@ -76,12 +76,12 @@ function makeTree(x) {
     var color = lerpColor("#222222","#666666", Math.random());
 
     // define leaf color range once per tree
-    var f1 = Math.random()*0.2;
-    var f2 = f1+0.2+Math.random()*0.5;
-    var f3 = Math.random()*(1-f2)+f2;
-    var minRed = lerpColor(red, green, f1);
-    var minNormalColor = lerpColor(red, green, f2);
-    var maxNormalColor = lerpColor(red, green, f3);
+    var f0 = Math.random()*0.2;
+    var f1 = Math.random()*0.5 + 0.3;
+    var f2 = Math.random()*(1-f1) + f1;
+    var minRed = lerpColor(red, green, f0);
+    var minNormalColor = lerpColor(red, green, f1);
+    var maxNormalColor = lerpColor(red, green, f2);
     var leafColors = [];
     // fall colors
     for (var i=0; i<5; i++) {
@@ -219,45 +219,15 @@ function drawBranchLeaves(g, p, branch, accumulatedTorque, leafColors) {
         leaves
     } = branch;
 
-    // a year is 3600 frames
-    // a season is 900 frames
-    var dayOfYear = world.t%360;
-    var season = Math.floor(dayOfYear/90); //[summer,fall,winter,spring]
+    var season = getSeason();
 
     for (var i=leaves.length-1;i>0;i--) {
         var leaf = leaves[i];
-        
-        // update leaves by season
-        if (season == 1) {
-            // random chance to decrement leaf color towards 0
-            if (Math.random()<0.02) {
-                leaf.colorIndex = Math.max(0, leaf.colorIndex-1);
-            }
-
-            if (leaf.colorIndex < 3) {
-                if (Math.random()<0.01) {
-                    leaves.splice(i,1);
-                    var worldLeaf = {
-                        p: p.add(leaf.offset),
-                        color: leafColors[leaf.colorIndex]
-                    };
-                    world.leaves.push(worldLeaf);
-                    continue;
-                }
-            }
-        }
-        else if (season == 3) {
-            if (leaf.size < 4) {
-                if (Math.random()<0.02) {
-                    leaf.size++;
-                }
-            }
-        }
-
+        if (!updateBranchLeaf(leaf, p, leaves, i, leafColors)) continue;
         drawBranchLeaf(g, p, leaf, accumulatedTorque, leafColors);
     }
 
-    if (season == 3) {
+    if (season == 4) {
         // random chance to sprout a leaf
         if (leaves.length < leafsPerTwig) {
             if (Math.random()*0.01) {
@@ -267,6 +237,45 @@ function drawBranchLeaves(g, p, branch, accumulatedTorque, leafColors) {
             }
         }
     }
+}
+
+function updateBranchLeaf(leaf, p, leaves, leafIndex, leafColors) {
+    var season = getSeason();
+
+    if (season == 1) {
+        // random chance to decrement leaf color towards 0
+        if (Math.random()<0.02) {
+            leaf.colorIndex = Math.max(0, leaf.colorIndex-1);
+        }
+    }
+    else if (season == 2) {
+        if (Math.random()<0.01) {
+            leaves.splice(leafIndex,1);
+            var worldLeaf = {
+                p: p.add(leaf.offset),
+                color: leafColors[leaf.colorIndex]
+            };
+            world.leaves.push(worldLeaf);
+            return false;
+        }
+    }
+    else if (season == 4) {
+        if (leaf.size < 4) {
+            if (Math.random()<0.02) {
+                leaf.size++;
+            }
+        }
+    }
+    return true;
+}
+
+function getSeason() {
+    // a year is 3600 frames
+    // a season is 900 frames
+    // [summer, earlyFall, fall, winter, spring]
+    var dayOfYear = world.t%500;
+    var season = Math.floor(dayOfYear/100);
+    return season;
 }
 
 function drawBranchLeaf(g, p, leaf, accumulatedTorque, leafColors) {
@@ -286,7 +295,7 @@ function drawWorldLeaf(g, leaf) {
     } = leaf;
 
     if (p.y > size) {
-        p.x += windAt(p.x)*windSpeed;
+        p.x += windAt(p.x)*windSpeed*4;
         p.y += -leafFallSpeed;
     }
 
