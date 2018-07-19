@@ -19,6 +19,9 @@ class Vector {
     }
 
     div (s) {
+        if (s == 0) {
+            throw "division by zero";
+        }
         return new Vector(this.x/s, this.y/s);
     }
 
@@ -32,11 +35,15 @@ class Vector {
     }
 
     normalize () {
+        if (this.x == 0 && this.y == 0) return this;
         const l = this.length();
         return this.div(l);
     }
 
     rotate (theta) {
+        if (isNaN(theta)) {
+            throw "invalid rotation";
+        }
         const a = this.x*Math.cos(theta)-this.y*Math.sin(theta);
         const b = this.x*Math.sin(theta)+this.y*Math.cos(theta);
         return new Vector(a,b);

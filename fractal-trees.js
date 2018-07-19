@@ -1,36 +1,32 @@
-var lengthRatio;
-var lengthVariance;
-var minBranchRatio;
-var minBranch;
-var minBranchAngle;
-var maxBranchAngle;
-
 var green = "#5fa536";
 var red = "#a54736";
-var minLeaveColor;
-var maxLeaveColor;
-var branchColor;
-
-var trees = [];
-var start;
 var c,g;
-var t = 0;
+
+var world = {
+    t: 0,
+    trees: [],
+    leaves: []
+};
+
+var stepSize = 0.1;
+var numTrees = 3;
+var treeStiffness = 1;
+var leafsPerTwig = 3;
+var windSpeed = 5;
+var leafFallSpeed = 3;
 
 function run() {
     c = document.getElementById('canvas');
     g = c.getContext('2d');
 
+    // move 0,0 to the bottom center
     g.translate(0, c.height);
+    // flip y so it increases going up
     g.scale(1,-1);
 
-    minBranch = 0.5;
-    minBranchAngle = Math.PI/15;
-    maxBranchAngle = Math.PI/6;
-
-    trees = [];
-    for (var i=0; i<3; i++) {
-        var x = randBetween(0,c.width);
-        trees.push(makeTree(x));
+    for (var i=0; i<numTrees; i++) {
+        var x = randBetween(c.width*0.2,c.width*0.8);
+        world.trees.push(makeTree(x));
     }
 
     window.requestAnimationFrame(step);
@@ -39,10 +35,23 @@ function run() {
 function step(timestamp) {
     g.clearRect(0, 0, c.width, c.height);
 
-    t += 0.1;
+    var {
+        trees,
+        leaves
+    } = world;
+
+    world.t += stepSize;
 
     for (var i=0;i<trees.length;i++) {
         drawTree(g, trees[i]);
+    }
+
+    for (var i=leaves.length-1;i>0;i--) {
+        if (Math.random()<0.005) {
+            leaves.splice(i, 1);
+            continue;
+        }
+        drawWorldLeaf(g, leaves[i]);
     }
 
     window.requestAnimationFrame(step);
@@ -52,12 +61,14 @@ function step(timestamp) {
 function makeTree(x) {
     var width = randBetween(16,32);
 
-    lengthRatio = randBetween(4,7);
-    lengthVariance = randBetween(0.4,0.8);
-    minBranchRatio = randBetween(0.4,0.5);
-    minBranch = 0.5;
-    minBranchAngle = Math.PI/15;
-    maxBranchAngle = Math.PI/6;
+    var treeSettings = {
+        lengthRatio: randBetween(4,7),
+        lengthVariance: randBetween(0.4,0.8),
+        minBranchRatio: randBetween(0.4,0.5),
+        minBranch: 0.75,
+        minBranchAngle: Math.PI/15,
+        maxBranchAngle: Math.PI/6
+    };
 
     var root = new Vector(x,0);
     var direction = new Vector(0,1);
@@ -65,35 +76,45 @@ function makeTree(x) {
     var color = lerpColor("#222222","#666666", Math.random());
 
     // define leaf color range once per tree
-    var f = Math.random();
-    minLeaveColor = lerpColor(green, red, f-0.25);
-    maxLeaveColor = lerpColor(green, red, f+0.25);
+    var f1 = Math.random()*0.2;
+    var f2 = f1+0.2+Math.random()*0.5;
+    var f3 = Math.random()*(1-f2)+f2;
+    var minRed = lerpColor(red, green, f1);
+    var minNormalColor = lerpColor(red, green, f2);
+    var maxNormalColor = lerpColor(red, green, f3);
     var leafColors = [];
+    // fall colors
     for (var i=0; i<5; i++) {
-        leafColors[i] = lerpColor(minLeaveColor, maxLeaveColor, i/4.0);
+        leafColors[i] = lerpColor(minRed, minNormalColor, i/5.0);
+    }
+    // normal colors
+    for (var i=0; i<5; i++) {
+        leafColors[i+5] = lerpColor(minNormalColor, maxNormalColor, i/5.0);
     }
 
-    var makeLeaf = function(v) {
-        var color = leafColors[Math.ceil(Math.random()*5)-1]
-        var offset = v.rotate(randBetween(-Math.PI/4, Math.PI/4)).normalize().mul(Math.random()*18);
-        return {
-            color,
-            offset
-        }
-    }
-
-    var trunk = makeBranch(direction, width, makeLeaf);
+    var trunk = makeBranch(direction, width, treeSettings);
 
     return {
         root,
         color,
-        trunk
+        trunk,
+        leafColors
     }
 }
 
-function makeBranch(direction, width, makeLeaf) {
-    var length = branchLength(width);
+function makeBranch(direction, width, treeSettings) {
+    var {
+        lengthRatio,
+        lengthVariance,
+        minBranchRatio,
+        minBranch,
+        minBranchAngle,
+        maxBranchAngle,
+    } = treeSettings;
 
+    var variance = Math.random()*lengthVariance;
+    var length = width*lengthRatio*(1-variance);
+    
     var branch = {
         width,
         length,
@@ -103,8 +124,8 @@ function makeBranch(direction, width, makeLeaf) {
     // add leaves to twigs
     if (width < 3) {
         var leaves = [];
-        for (var i=0;i<5;i++) {
-            leaves.push(makeLeaf(direction));
+        for (var i=0;i<leafsPerTwig;i++) {
+            leaves.push(makeBranchLeaf(direction));
         }
         branch.leaves = leaves;
     }
@@ -124,48 +145,47 @@ function makeBranch(direction, width, makeLeaf) {
         var rightDir = direction.rotate(randBetween(minBranchAngle, maxBranchAngle));
 
         branch.branches = {
-            left: makeBranch(leftDir, a, makeLeaf),
-            right: makeBranch(rightDir, b, makeLeaf)
+            left: makeBranch(leftDir, a, treeSettings),
+            right: makeBranch(rightDir, b, treeSettings)
         };
     }
 
     return branch;
 }
 
-function drawWind(g) {
-    var px = 82; //-c.width/2 + 50 + 32;
-    var py = c.height/2 - 50 + 32;
-    var p = new Vector(px, py);
-    var q = p.add(new Vector(wind*32, 0));
-
-    var color = "#000000";
-
-    g.beginPath();
-    g.arc(px, py, 32, 0, twoPI);
-    g.lineWidth = 2;
-    g.strokeStyle = color;
-    g.stroke();
-
-    line(g, p, q, 2, color);
+function makeBranchLeaf(v) {
+    var colorIndex = Math.ceil(Math.random()*5)-1 + 5;
+    var offset = v.rotate(randBetween(-Math.PI/4, Math.PI/4)).normalize().mul(Math.random()*18);
+    return {
+        colorIndex,
+        offset,
+        size: 4
+    }
 }
 
 function drawTree(g, tree) {
-    var p = tree.root;
-    var color = tree.color;
-    var trunk = tree.trunk;
+    var {
+        root,
+        color,
+        trunk,
+        leafColors
+    } = tree;
 
-    drawBranch(g, p, trunk, color, 0);
+    drawBranch(g, root, trunk, color, leafColors, 0);
 }
 
-function drawBranch(g, p, branch, color, accumulatedTorque) {
+function drawBranch(g, p, branch, color, leafColors, accumulatedTorque) {
+    if (isNaN(p.x) || isNaN(p.y)) {
+        throw "branch root is invalid";
+    }
     var vn = branch.direction.rotate(accumulatedTorque);
     
     // apply additional wind
-    var wind = windAt(p.x)*2;
+    var wind = windAt(p.x)*windSpeed;
     var windn = new Vector(wind, 0);
 
-    var winds = Math.abs(vn.dot(windn)*wind);
-    var twist = toRadians(clamp(branch.length*winds/branch.width*Math.sign(vn.y), -10, 10));
+    var winds = (1 - Math.abs(vn.dot(windn)))*wind;
+    var twist = toRadians(clamp(winds/treeStiffness*Math.sign(vn.y), -5, 5));
 
     // to radians
     vn = vn.rotate(twist);
@@ -184,31 +204,100 @@ function drawBranch(g, p, branch, color, accumulatedTorque) {
         var  b = branch.branches.right.width;
         var ap = q.add(left.mul(width/2)).add(right.mul(a/2));
         var bp = q.add(right.mul(width/2).add(left.mul(b/2)));
-        drawBranch(g, ap, branch.branches.left, color, accumulatedTorque);
-        drawBranch(g, bp, branch.branches.right, color, accumulatedTorque);
+        drawBranch(g, ap, branch.branches.left, color, leafColors, accumulatedTorque);
+        drawBranch(g, bp, branch.branches.right, color, leafColors, accumulatedTorque);
     }
 
     if (branch.leaves) {
-        for (var i=0;i<branch.leaves.length;i++) {
-            var leaf = branch.leaves[i];
-            drawLeaf(g, p, leaf, accumulatedTorque);
+        drawBranchLeaves(g, p, branch, accumulatedTorque, leafColors);
+    }
+}
+
+function drawBranchLeaves(g, p, branch, accumulatedTorque, leafColors) {
+    var {
+        direction,
+        leaves
+    } = branch;
+
+    // a year is 3600 frames
+    // a season is 900 frames
+    var dayOfYear = world.t%360;
+    var season = Math.floor(dayOfYear/90); //[summer,fall,winter,spring]
+
+    for (var i=leaves.length-1;i>0;i--) {
+        var leaf = leaves[i];
+        
+        // update leaves by season
+        if (season == 1) {
+            // random chance to decrement leaf color towards 0
+            if (Math.random()<0.02) {
+                leaf.colorIndex = Math.max(0, leaf.colorIndex-1);
+            }
+
+            if (leaf.colorIndex < 3) {
+                if (Math.random()<0.01) {
+                    leaves.splice(i,1);
+                    var worldLeaf = {
+                        p: p.add(leaf.offset),
+                        color: leafColors[leaf.colorIndex]
+                    };
+                    world.leaves.push(worldLeaf);
+                    continue;
+                }
+            }
+        }
+        else if (season == 3) {
+            if (leaf.size < 4) {
+                if (Math.random()<0.02) {
+                    leaf.size++;
+                }
+            }
+        }
+
+        drawBranchLeaf(g, p, leaf, accumulatedTorque, leafColors);
+    }
+
+    if (season == 3) {
+        // random chance to sprout a leaf
+        if (leaves.length < leafsPerTwig) {
+            if (Math.random()*0.01) {
+                var bud = makeBranchLeaf(direction);
+                bud.size = 1;
+                leaves.push(bud);
+            }
         }
     }
 }
 
-function drawLeaf(g, p, leaf, accumulatedTorque) {
-    g.beginPath();
-    g.fillStyle = leaf.color;
+function drawBranchLeaf(g, p, leaf, accumulatedTorque, leafColors) {
+    var color = leafColors[leaf.colorIndex];
     var q = p.add(leaf.offset.rotate(accumulatedTorque));
     var wind = windAt(p.x);
-    q.x += wind*2;
-    g.rect(q.x, q.y, 4, 4);
-    g.fill();
+    q.x += wind*windSpeed;
+    drawLeaf(g, q, leaf.size, color);
 }
 
-function branchLength(trunk) {
-    var variance = Math.random()*lengthVariance;
-    return trunk*lengthRatio*(1-variance);
+function drawWorldLeaf(g, leaf) {
+    var size = 4;
+    // float down
+    var {
+        p,
+        color
+    } = leaf;
+
+    if (p.y > size) {
+        p.x += windAt(p.x)*windSpeed;
+        p.y += -leafFallSpeed;
+    }
+
+    drawLeaf(g, p, size, color);
+}
+
+function drawLeaf(g, p, size, color) {
+    g.beginPath();
+    g.fillStyle = color;
+    g.rect(p.x, p.y, size, size);
+    g.fill();
 }
 
 function line (g, p, q, width, color) {
@@ -286,8 +375,10 @@ function samplePerlin(x) {
 }
 
 function windAt(x) {
-    var i = (x/c.width * 90.0 + t)%90.0;
-    return samplePerlin(i);
+    x %= 99;
+    if (x < 0) x += 99;
+    var i = (x/c.width * 99.0 + world.t/5)%99.0;
+    return Math.abs(samplePerlin(i));
 }
 
 
