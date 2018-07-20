@@ -1,5 +1,11 @@
-var green = "#5fa536";
-var red = "#a54736";
+var green = color2rgb("#5fba2a");
+var darkgreen = color2rgb("#135622");
+var lightgreen = color2rgb("#abd112");
+var yellow = color2rgb("#d8b60d");
+var red = color2rgb("#ce2d10");
+var orange = color2rgb("#d1550e");
+var gray = color2rgb("#666666");
+var darkgray = color2rgb("#222222");
 var c,g;
 
 var world = {
@@ -7,6 +13,9 @@ var world = {
     trees: [],
     leaves: []
 };
+
+var springcolors = [darkgreen, green, lightgreen];
+var fallcolors = [yellow, orange, red];
 
 var stepSize = 0.1;
 var numTrees = 3;
@@ -73,24 +82,13 @@ function makeTree(x) {
     var root = new Vector(x,0);
     var direction = new Vector(0,1);
 
-    var color = lerpColor("#222222","#666666", Math.random());
+    var color = rgb2color(lerpRgb(darkgray,gray, Math.random()));
 
     // define leaf color range once per tree
-    var f0 = Math.random()*0.2;
-    var f1 = Math.random()*0.5 + 0.3;
-    var f2 = Math.random()*(1-f1) + f1;
-    var minRed = lerpColor(red, green, f0);
-    var minNormalColor = lerpColor(red, green, f1);
-    var maxNormalColor = lerpColor(red, green, f2);
-    var leafColors = [];
-    // fall colors
-    for (var i=0; i<5; i++) {
-        leafColors[i] = lerpColor(minRed, minNormalColor, i/5.0);
-    }
-    // normal colors
-    for (var i=0; i<5; i++) {
-        leafColors[i+5] = lerpColor(minNormalColor, maxNormalColor, i/5.0);
-    }
+    // pick two spring colors and two fall colors
+    var springs = nChooseK(springcolors, 2);
+    var falls = nChooseK(fallcolors, 2);
+    var leafColors = palette(springs[0], springs[1], falls[0], falls[1]);
 
     var trunk = makeBranch(direction, width, treeSettings);
 
@@ -154,7 +152,7 @@ function makeBranch(direction, width, treeSettings) {
 }
 
 function makeBranchLeaf(v) {
-    var colorIndex = Math.ceil(Math.random()*5)-1 + 5;
+    var colorIndex = [randomInt(5), 0];
     var offset = v.rotate(randBetween(-Math.PI/4, Math.PI/4)).normalize().mul(Math.random()*18);
     return {
         colorIndex,
@@ -243,17 +241,19 @@ function updateBranchLeaf(leaf, p, leaves, leafIndex, leafColors) {
     var season = getSeason();
 
     if (season == 1) {
-        // random chance to decrement leaf color towards 0
+        // random chance to increase leaf color towards 4
         if (Math.random()<0.02) {
-            leaf.colorIndex = Math.max(0, leaf.colorIndex-1);
+            leaf.colorIndex[1] = Math.min(4, leaf.colorIndex[1]+1);
         }
     }
     else if (season == 2) {
         if (Math.random()<0.01) {
             leaves.splice(leafIndex,1);
+            var rgb = getColor(leafColors, leaf.colorIndex);
+            var rgba = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${Math.random()*0.4+0.2})`;
             var worldLeaf = {
                 p: p.add(leaf.offset),
-                color: leafColors[leaf.colorIndex]
+                color: rgba
             };
             world.leaves.push(worldLeaf);
             return false;
@@ -279,7 +279,7 @@ function getSeason() {
 }
 
 function drawBranchLeaf(g, p, leaf, accumulatedTorque, leafColors) {
-    var color = leafColors[leaf.colorIndex];
+    var color = getColor(leafColors, leaf.colorIndex);
     var q = p.add(leaf.offset.rotate(accumulatedTorque));
     var wind = windAt(p.x);
     q.x += wind*windSpeed;
@@ -318,43 +318,13 @@ function line (g, p, q, width, color) {
     g.stroke();
 }
 
-function hex2bytes (str) {
-    var a = [];
-    for (var i = 0, len = str.length; i < len; i+=2) {
-        a.push(parseInt(str.substr(i,2),16));
-    }
-    return a;
-}
-
-function bytes2hex (arr) {
-    var hexStr = '';
-    for (var i = 0; i < arr.length; i++) {
-        var hex = (arr[i] & 0xff).toString(16);
-        hex = (hex.length === 1) ? '0' + hex : hex;
-        hexStr += hex;
-    }
-    return hexStr;
-}
-
-function color2hex (c) {
-    return c.substring(1);
-}
-
-function hex2color (a) {
-    return '#'+a;
-}
-
-function lerpColor (a, b, f) {
-    var aa = hex2bytes(color2hex(a));
-    var bb = hex2bytes(color2hex(b));
-    var cc = aa.map((a,i) => { 
-        return (bb[i] - a)*f + a;
-    });
-    return hex2color(bytes2hex(cc));
-}
-
 function randBetween(p,q) {
     return Math.random()*(q-p)+p;
+}
+
+function randomInt(a,b) {
+    if (b === undefined) {b=a;a=0}
+    return Math.ceil(Math.random()*(b-a)) - 1 + a;
 }
 
 function randomAngle() {
@@ -390,5 +360,28 @@ function windAt(x) {
     return Math.abs(samplePerlin(i));
 }
 
+function drawPalette(g, palette) {
+    for (var i=0;i<5;i++) {
+        for (var j=0;j<5;j++) {
+            var x = 50 + i*10;
+            var y = 50 + j*10;
+            g.beginPath();
+            g.fillStyle = palette[i][j];
+            g.rect(x,y,9,9);
+            g.fill();
+        }
+    }
+}
+
+function nChooseK(values, k) {
+    var choices = Array.from(values);
+    var result = [];
+    for (var i=0;i<k;i++) {
+        var j = randomInt(choices.length-1);
+        result.push(choices[j]);
+        choices.splice(j,1);
+    }
+    return result;
+}
 
 window.onload = run;
