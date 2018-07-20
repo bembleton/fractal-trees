@@ -13,11 +13,15 @@ var darkgray = color2rgb("#222222");
 
 var skyblue = color2rgb("#cde1f4");
 
+var grassnear = color2rgb("#89c14d");
+var grassfar = color2rgb("#bbd89c");
+
 
 var c,g;
 
 var world = {
     t: 0,
+    hills: [],
     trees: [],
     leaves: []
 };
@@ -31,6 +35,7 @@ var treeStiffness = 1;
 var leafsPerTwig = 4;
 var windSpeed = 5;
 var leafFallSpeed = 3;
+var yearLength = 500;
 
 function run() {
     c = document.getElementById('canvas');
@@ -40,6 +45,10 @@ function run() {
     g.translate(0, c.height);
     // flip y so it increases going up
     g.scale(1,-1);
+
+    var y = c.height/2;
+    world.hills.push(makeHill(y+32, rgb2color(grassfar)));
+    world.hills.push(makeHill(y, rgb2color(grassnear)));
 
     var treeSpacing = c.width / (numTrees+2);
     var xd = treeSpacing*0.2;
@@ -80,11 +89,17 @@ function step(timestamp) {
     background(rgb2color(skyblue));
 
     var {
+        hills,
         trees,
         leaves
     } = world;
 
     world.t += stepSize;
+    world.t %= yearLength;
+
+    for (var i=0;i<hills.length;i++) {
+        drawHill(g, hills[i]);
+    }
 
     for (var i=0;i<trees.length;i++) {
         drawTree(g, trees[i]);
@@ -101,6 +116,51 @@ function step(timestamp) {
     window.requestAnimationFrame(step);
 }
 
+function makeHill(y, color) {
+    var points = [];
+    for (var i=0;i<=5;i++) {
+        var x = i/5.0 * c.width;
+        var dy = Math.random()*150-50;
+        points.push([x,y+dy]);
+    }
+    return {
+        points,
+        color
+    };
+}
+
+function drawHill(g, hill) {
+    var {
+        points,
+        color
+    } = hill;
+
+    g.beginPath();
+    g.fillStyle = color;
+    g.moveTo((points[0][0]), points[0][1]);
+
+    for(var i = 0; i < points.length-1; i ++) {
+        // Draw point
+        var x_mid = (points[i][0] + points[i+1][0]) / 2;
+        var y_mid = (points[i][1] + points[i+1][1]) / 2;
+        var cp_x1 = (x_mid + points[i][0]) / 2;
+        var cp_y1 = (y_mid + points[i][1]) / 2;
+        var cp_x2 = (x_mid + points[i+1][0]) / 2;
+        var cp_y2 = (y_mid + points[i+1][1]) / 2;
+
+        g.quadraticCurveTo(cp_x1,points[i][1] ,x_mid, y_mid);
+        g.quadraticCurveTo(cp_x2,points[i+1][1] ,points[i+1][0],points[i+1][1]);
+      }
+    g.arc(points[points.length - 1][0], points[points.length - 1][1], 2, 0, Math.PI * 2, false);
+    g.lineTo(c.width, 0);
+    g.lineTo(0,0);
+    g.lineTo(points[0].x, points[0].y);
+    g.fill();
+}
+
+let drawChart = function() {
+    c
+}
 
 function makeTree(x) {
     var width = randBetween(16,32);
