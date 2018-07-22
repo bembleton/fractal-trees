@@ -1,11 +1,19 @@
 var green = color2rgb("#5fba2a");
 var darkgreen = color2rgb("#135622");
 var lightgreen = color2rgb("#abd112");
+var teal = color2rgb("#35a87a");
 var yellow = color2rgb("#d8b60d");
 var red = color2rgb("#ce2d10");
 var orange = color2rgb("#d1550e");
+var mauve = color2rgb("#91527f");
+var burgandy = color2rgb("#632d33");
+
 var gray = color2rgb("#666666");
 var darkgray = color2rgb("#222222");
+
+var skyblue = color2rgb("#cde1f4");
+
+
 var c,g;
 
 var world = {
@@ -14,8 +22,8 @@ var world = {
     leaves: []
 };
 
-var springcolors = [darkgreen, green, lightgreen];
-var fallcolors = [yellow, orange, red];
+var springcolors = [darkgreen, green, lightgreen, teal];
+var fallcolors = [yellow, orange, red, burgandy, mauve];
 
 var stepSize = 0.1;
 var numTrees = 3;
@@ -33,26 +41,43 @@ function run() {
     // flip y so it increases going up
     g.scale(1,-1);
 
-    for (var i=0; i<numTrees; i++) {
-        
-        world.trees.push(makeTree());
+    var treeSpacing = c.width / (numTrees+2);
+    var xd = treeSpacing*0.2;
+
+    for (var i=1; i<=numTrees; i++) {
+        var x = i*treeSpacing + Math.random()*xd*2-xd;
+        world.trees.push(makeTree(x));
     }
 
     window.requestAnimationFrame(step);
 }
 
 var lastUpdate;
+var waitFrames = 5;
+var avgFrame = 0;
 
 function step(timestamp) {
     if (!lastUpdate) lastUpdate = timestamp;
     var elapsed = timestamp - lastUpdate;
+    lastUpdate = timestamp;
 
-    if (elapsed > 33 && numTrees > 1) {
-        numTrees--;
-        delete world.trees.pop();
+    avgFrame = (avgFrame*4 + elapsed) / 5;
+
+    if (waitFrames) {
+        waitFrames--;
+    } else {
+        if (avgFrame > 60 && leafsPerTwig > 3 && Math.random() < 0.5) {
+            leafsPerTwig--;
+            dropSomeLeaves();
+        } else if (avgFrame > 60 && numTrees > 1) {
+            numTrees--;
+            delete world.trees.pop();
+        }
+        waitFrames = 5;
     }
     
     g.clearRect(0, 0, c.width, c.height);
+    background(rgb2color(skyblue));
 
     var {
         trees,
@@ -77,8 +102,7 @@ function step(timestamp) {
 }
 
 
-function makeTree() {
-    var x = randBetween(c.width*0.2,c.width*0.8);
+function makeTree(x) {
     var width = randBetween(16,32);
 
     var treeSettings = {
@@ -261,10 +285,11 @@ function updateBranchLeaf(leaf, p, leaves, leafIndex, leafColors) {
         if (Math.random()<0.01) {
             leaves.splice(leafIndex,1);
             var rgb = getColor(leafColors, leaf.colorIndex);
-            var rgba = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${Math.random()*0.4+0.2})`;
+            // rgb(n,n,n)
+            //var color = rgb2color(rgb, Math.random()*0.4+0.2);
             var worldLeaf = {
                 p: p.add(leaf.offset),
-                color: rgba
+                color: rgb
             };
             world.leaves.push(worldLeaf);
             return false;
@@ -278,6 +303,22 @@ function updateBranchLeaf(leaf, p, leaves, leafIndex, leafColors) {
         }
     }
     return true;
+}
+
+function dropSomeLeaves() {
+    let dbl;
+    dbl = function (branch) {
+        if (branch.leaves) {
+            branch.leaves.pop();
+        } else if (branch.branches) {
+            dbl(branch.branches.left);
+            dbl(branch.branches.right);
+        }
+    };
+
+    world.trees.forEach((tree) => {
+        dbl(tree.trunk);
+    });
 }
 
 function getSeason() {
@@ -393,6 +434,11 @@ function nChooseK(values, k) {
         choices.splice(j,1);
     }
     return result;
+}
+
+function background(color) {
+    g.fillStyle = color;
+    g.fillRect(0, 0, c.width, c.height);
 }
 
 window.onload = run;

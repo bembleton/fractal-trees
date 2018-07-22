@@ -8,7 +8,7 @@ function color2rgb(c) {
 }
 
 function rgb2color(rgb, alpha) {
-    return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})${alpha ? ','+alpha : ''}`;
+    return `rgb(${rgb[0]},${rgb[1]},${rgb[2]}${alpha ? ','+alpha : ''})`;
 }
 
 function lerpRgb(a, b, f) {
@@ -22,10 +22,10 @@ function palette(c1, c2, f1, f2) {
     const palette = [];
     for (var i=0;i<5;i++) {
         palette[i] = [];
-        var a = palette[i][0] = lerpRgb(c1, c2, i/9.0);
-        var b = palette[i][4] = lerpRgb(f1, f2, i/9.0);
+        var a = palette[i][0] = lerpRgb(c1, c2, i/4.0);
+        var b = palette[i][4] = lerpRgb(f1, f2, i/4.0);
         for (var j=1;j<4;j++) {
-            palette[i][j] = lerpRgb(a, b, j/3.0);
+            palette[i][j] = lerpRgb(a, b, j/4.0);
         }
     }
 
@@ -40,6 +40,6 @@ function palette(c1, c2, f1, f2) {
     return colors;
 }
 
-function getColor(palette, indices) {
-    return palette[indices[0]][indices[1]];
+function getColor(colors, indices) {
+    return colors[indices[0]][indices[1]];
 }
