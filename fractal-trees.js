@@ -34,14 +34,24 @@ function run() {
     g.scale(1,-1);
 
     for (var i=0; i<numTrees; i++) {
-        var x = randBetween(c.width*0.2,c.width*0.8);
-        world.trees.push(makeTree(x));
+        
+        world.trees.push(makeTree());
     }
 
     window.requestAnimationFrame(step);
 }
 
+var lastUpdate;
+
 function step(timestamp) {
+    if (!lastUpdate) lastUpdate = timestamp;
+    var elapsed = timestamp - lastUpdate;
+
+    if (elapsed > 33 && numTrees > 1) {
+        numTrees--;
+        delete world.trees.pop();
+    }
+    
     g.clearRect(0, 0, c.width, c.height);
 
     var {
@@ -67,7 +77,8 @@ function step(timestamp) {
 }
 
 
-function makeTree(x) {
+function makeTree() {
+    var x = randBetween(c.width*0.2,c.width*0.8);
     var width = randBetween(16,32);
 
     var treeSettings = {
