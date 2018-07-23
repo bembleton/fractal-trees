@@ -1,20 +1,20 @@
-var green = color2rgb("#5fba2a");
-var darkgreen = color2rgb("#135622");
-var lightgreen = color2rgb("#abd112");
-var teal = color2rgb("#35a87a");
-var yellow = color2rgb("#d8b60d");
-var red = color2rgb("#ce2d10");
-var orange = color2rgb("#d1550e");
-var mauve = color2rgb("#91527f");
-var burgandy = color2rgb("#632d33");
+var green = Color.fromHex("#5fba2a");
+var darkgreen = Color.fromHex("#135622");
+var lightgreen = Color.fromHex("#abd112");
+var teal = Color.fromHex("#35a87a");
+var yellow = Color.fromHex("#d8b60d");
+var red = Color.fromHex("#ce2d10");
+var orange = Color.fromHex("#d1550e");
+var mauve = Color.fromHex("#91527f");
+var burgandy = Color.fromHex("#632d33");
 
-var gray = color2rgb("#666666");
-var darkgray = color2rgb("#222222");
+var gray = Color.fromHex("#666666");
+var darkgray = Color.fromHex("#222222");
 
-var skyblue = color2rgb("#cde1f4");
+var skyblue = Color.fromHex("#cde1f4");
 
-var grassnear = color2rgb("#89c14d");
-var grassfar = color2rgb("#bbd89c");
+var grassnear = Color.fromHex("#89c14d");
+var grassfar = Color.fromHex("#bbd89c");
 
 
 var c,g;
@@ -37,6 +37,10 @@ var windSpeed = 5;
 var leafFallSpeed = 3;
 var yearLength = 500;
 
+var totalBranches;
+var totalBranchLeaves;
+var totalWorldLeaves;
+
 function run() {
     c = document.getElementById('canvas');
     g = c.getContext('2d');
@@ -46,9 +50,9 @@ function run() {
     // flip y so it increases going up
     g.scale(1,-1);
 
-    var y = c.height/2;
-    world.hills.push(makeHill(y+32, rgb2color(grassfar)));
-    world.hills.push(makeHill(y, rgb2color(grassnear)));
+    var y = 100;
+    world.hills.push(makeHill(y+32, grassfar.rgb));
+    world.hills.push(makeHill(y, grassnear.rgb));
 
     var treeSpacing = c.width / (numTrees+2);
     var xd = treeSpacing*0.2;
@@ -65,12 +69,22 @@ var lastUpdate;
 var waitFrames = 5;
 var avgFrame = 0;
 
+function debug() {
+    document.getElementById("frameRate").textContent = (1000/avgFrame).toFixed(2);
+    document.getElementById("totalBranches").textContent = totalBranches;
+    document.getElementById("totalBranchLeaves").textContent = totalBranchLeaves;
+    document.getElementById("totalWorldLeaves").textContent = totalWorldLeaves;
+    document.getElementById("dayOfYear").textContent = world.t.toFixed(0);
+    var season = ['summer', 'earlyFall', 'fall', 'winter', 'spring'][getSeason()];
+    document.getElementById("season").textContent = season;
+}
+
 function step(timestamp) {
     if (!lastUpdate) lastUpdate = timestamp;
     var elapsed = timestamp - lastUpdate;
     lastUpdate = timestamp;
 
-    avgFrame = (avgFrame*4 + elapsed) / 5;
+    avgFrame = (avgFrame*29 + elapsed) / 30;
 
     if (waitFrames) {
         waitFrames--;
@@ -86,7 +100,7 @@ function step(timestamp) {
     }
     
     g.clearRect(0, 0, c.width, c.height);
-    background(rgb2color(skyblue));
+    background(skyblue.rgb);
 
     var {
         hills,
@@ -101,6 +115,10 @@ function step(timestamp) {
         drawHill(g, hills[i]);
     }
 
+    totalBranches = 0;
+    totalBranchLeaves = 0;
+    totalWorldLeaves = leaves.length;
+
     for (var i=0;i<trees.length;i++) {
         drawTree(g, trees[i]);
     }
@@ -112,6 +130,8 @@ function step(timestamp) {
         }
         drawWorldLeaf(g, leaves[i]);
     }
+
+    debug();
 
     window.requestAnimationFrame(step);
 }
@@ -158,10 +178,6 @@ function drawHill(g, hill) {
     g.fill();
 }
 
-let drawChart = function() {
-    c
-}
-
 function makeTree(x) {
     var width = randBetween(16,32);
 
@@ -177,7 +193,7 @@ function makeTree(x) {
     var root = new Vector(x,0);
     var direction = new Vector(0,1);
 
-    var color = rgb2color(lerpRgb(darkgray,gray, Math.random()));
+    var color = Color.lerp(darkgray, gray, Math.random()).rgb;
 
     // define leaf color range once per tree
     // pick two spring colors and two fall colors
@@ -271,6 +287,9 @@ function drawBranch(g, p, branch, color, leafColors, accumulatedTorque) {
     if (isNaN(p.x) || isNaN(p.y)) {
         throw "branch root is invalid";
     }
+
+    totalBranches++;
+
     var vn = branch.direction.rotate(accumulatedTorque);
     
     // apply additional wind
@@ -317,6 +336,8 @@ function drawBranchLeaves(g, p, branch, accumulatedTorque, leafColors) {
     for (var i=leaves.length-1;i>0;i--) {
         var leaf = leaves[i];
         if (!updateBranchLeaf(leaf, p, leaves, i, leafColors)) continue;
+
+        totalBranchLeaves++;
         drawBranchLeaf(g, p, leaf, accumulatedTorque, leafColors);
     }
 
@@ -347,12 +368,14 @@ function updateBranchLeaf(leaf, p, leaves, leafIndex, leafColors) {
             // half the leaves should fall
             // and half should just disappear
             if (Math.random()<0.5) {
-                var rgb = getColor(leafColors, leaf.colorIndex);
+                var alpha = Math.random()*0.4+0.2;
+                var leafColor = getColor(leafColors, leaf.colorIndex);
+                var color = Color.fromColor(leafColor, alpha);
                 // rgb(n,n,n)
                 //var color = rgb2color(rgb, Math.random()*0.4+0.2);
                 var worldLeaf = {
                     p: p.add(leaf.offset),
-                    color: rgb
+                    color: color.rgba
                 };
                 world.leaves.push(worldLeaf);
             }
@@ -395,10 +418,10 @@ function getSeason() {
 }
 
 function drawBranchLeaf(g, p, leaf, accumulatedTorque, leafColors) {
-    var color = getColor(leafColors, leaf.colorIndex);
-    var q = p.add(leaf.offset.rotate(accumulatedTorque));
-    var wind = windAt(p.x);
-    q.x += wind*windSpeed;
+    var color = getColor(leafColors, leaf.colorIndex).rgb;
+    var q = p.add(leaf.offset);
+    var wind = windAt(p.x)*windSpeed;
+    q.x += wind;
     drawLeaf(g, q, leaf.size, color);
 }
 
@@ -420,9 +443,12 @@ function drawWorldLeaf(g, leaf) {
 
 function drawLeaf(g, p, size, color) {
     g.beginPath();
-    g.fillStyle = color;
-    g.rect(p.x, p.y, size, size);
-    g.fill();
+    var half = size/2.0;
+    g.moveTo(p.x, p.y-half);
+    g.lineTo(p.x, p.y+half);
+    g.lineWidth = size;
+    g.strokeStyle = color;
+    g.stroke();
 }
 
 function line (g, p, q, width, color) {

@@ -22,26 +22,19 @@ function palette(c1, c2, f1, f2) {
     const palette = [];
     for (var i=0;i<5;i++) {
         palette[i] = [];
-        var a = palette[i][0] = lerpRgb(c1, c2, i/4.0);
-        var b = palette[i][4] = lerpRgb(f1, f2, i/4.0);
+        var a = palette[i][0] = Color.lerp(c1, c2, i/4.0);
+        var b = palette[i][4] = Color.lerp(f1, f2, i/4.0);
         for (var j=1;j<4;j++) {
-            palette[i][j] = lerpRgb(a, b, j/4.0);
+            palette[i][j] = Color.lerp(a, b, j/4.0);
         }
     }
 
-    var colors = [];
-    for (var i=0;i<5;i++) {
-        colors[i] = [];
-        for (var j=0;j<5;j++) {
-            colors[i][j] = rgb2color(palette[i][j]);
-        }
-    }
-
-    return colors;
+    return palette;
 }
 
 function getColor(colors, indices) {
-    return colors[indices[0]][indices[1]];
+    var [i,j] = indices;
+    return colors[i][j];
 }
 
 function toHex(n) {
@@ -78,6 +71,12 @@ class Color {
             a.push(parseInt(hex.substr(i,2),16));
         }
         return new Color(a[0],a[1],a[2],alpha);
+    }
+
+    static fromColor(color, alpha) {
+        var props = { ...color };
+        if (alpha !== undefined) props.a = alpha;
+        return new Color(props.r, props.g, props.b, props.a);
     }
 
     static lerp(c1, c2, f) {
