@@ -284,14 +284,18 @@ function updateBranchLeaf(leaf, p, leaves, leafIndex, leafColors) {
     else if (season == 2) {
         if (Math.random()<0.01) {
             leaves.splice(leafIndex,1);
-            var rgb = getColor(leafColors, leaf.colorIndex);
-            // rgb(n,n,n)
-            //var color = rgb2color(rgb, Math.random()*0.4+0.2);
-            var worldLeaf = {
-                p: p.add(leaf.offset),
-                color: rgb
-            };
-            world.leaves.push(worldLeaf);
+            // half the leaves should fall
+            // and half should just disappear
+            if (Math.random()<0.5) {
+                var rgb = getColor(leafColors, leaf.colorIndex);
+                // rgb(n,n,n)
+                //var color = rgb2color(rgb, Math.random()*0.4+0.2);
+                var worldLeaf = {
+                    p: p.add(leaf.offset),
+                    color: rgb
+                };
+                world.leaves.push(worldLeaf);
+            }
             return false;
         }
     }
